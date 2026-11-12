@@ -1,4 +1,4 @@
-[CARGA] 119,208 reservas leídas de datos/hotel_analitica.csv
+[CARGA] 119,208 reservas leídas de PostgreSQL (tabla 'hotel_analitica')
 
 [SPLIT CRONOLÓGICO]
   Entrenamiento: 2015-07-01 a 2016-12-31 -> 78,589 reservas
@@ -60,3 +60,5 @@ ROC AUC: 0.819  (0.5 = adivinar al azar, 1.0 = perfecto)
     P(cancelar) = 50.9% -> sobrevender = False. No supera el umbral: mantener la habitación reservada.
   Caso C - reserva segura (cliente repetido, parqueadero, 2 solicitudes especiales)
     P(cancelar) = 0.0% -> sobrevender = False. No supera el umbral: mantener la habitación reservada.
+
+[GUARDADO] Tabla 'predicciones_2017' creada en PostgreSQL (40,619 filas)

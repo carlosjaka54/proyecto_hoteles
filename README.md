@@ -10,7 +10,8 @@ decidir si el hotel puede **sobrevender** la habitación (umbral de decisión de
 
 ```mermaid
 flowchart LR
-    A[Kaggle<br/>hotel_bookings.csv<br/>119.390 reservas] --> B[Auditoría<br/>nulos, duplicados,<br/>valores fuera de rango]
+    K[Kaggle<br/>hotel_bookings.csv<br/>119.390 reservas] --> A[(PostgreSQL<br/>tabla reservas)]
+    A --> B[Auditoría<br/>nulos, duplicados,<br/>valores fuera de rango]
     B --> C[Fase ETL<br/>limpieza, quitar fuga de datos,<br/>variables nuevas]
     C --> D[Matriz analítica plana<br/>hotel_analitica.csv<br/>119.208 reservas]
     D --> E[Pipeline ML<br/>imputar mediana → split cronológico<br/>→ StandardScaler → regresión logística]
@@ -18,6 +19,8 @@ flowchart LR
     F --> G{Función de inferencia<br/>P cancelar ≥ 60%?}
     G -- Sí --> H[Sobrevender habitación]
     G -- No --> I[Mantener reserva]
+    H --> P[(PostgreSQL<br/>tabla predicciones_2017)]
+    I --> P
 ```
 
 ## Variables del modelo
@@ -71,9 +74,25 @@ No se usa un 80/20 aleatorio para no entrenar con reservas "del futuro" (fuga te
   reservar por agencia online y muchos días de anticipación.
 - Lo que más la **reduce**: pedir parqueadero, solicitudes especiales y tener reservas previas cumplidas.
 
+## Base de datos (PostgreSQL)
+
+| Tabla | Qué contiene | La crea |
+|---|---|---|
+| `reservas` | Las 119.390 reservas originales (almacén transaccional) | `cargar_a_postgres.py` |
+| `hotel_analitica` | Matriz analítica limpia (119.208 filas) | `etl_auditoria.py` |
+| `predicciones_2017` | Probabilidad de cancelación y decisión por reserva de prueba | `modelado_reservas.py` |
+
+En `consultas_pgadmin.sql` hay consultas listas para revisar cada tabla en pgAdmin.
+
 ## Cómo ejecutar
 
 1. Descargar `hotel_bookings.csv` de Kaggle y ponerlo en la carpeta `datos/`.
 2. Instalar dependencias: `pip install -r requirements.txt`
-3. ETL y auditoría: `python etl_auditoria.py` → genera `datos/hotel_analitica.csv`
-4. Modelo: `python modelado_reservas.py`
+3. En pgAdmin, crear una base de datos llamada `hoteles`.
+4. Copiar `.env.example` como `.env` y poner la contraseña de PostgreSQL.
+5. Probar la conexión: `python conexion_db.py`
+6. Cargar los datos a PostgreSQL (una sola vez): `python cargar_a_postgres.py`
+7. ETL y auditoría: `python etl_auditoria.py` → crea la tabla `hotel_analitica`
+8. Modelo: `python modelado_reservas.py` → crea la tabla `predicciones_2017`
+
+Sin base de datos también funciona: `python etl_auditoria.py --fuente csv` y `python modelado_reservas.py --fuente csv`.

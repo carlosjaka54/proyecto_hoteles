@@ -1,4 +1,4 @@
-[EXTRACCIÓN] 119,390 filas x 32 columnas leídas de datos/hotel_bookings.csv
+[EXTRACCIÓN] 119,390 filas x 33 columnas leídas de PostgreSQL (tabla 'reservas')
 
 [AUDITORÍA]
   Nulos por columna:
@@ -15,6 +15,7 @@
 [TRANSFORMACIÓN]
   Filas eliminadas por anomalías: 182
   Columnas eliminadas por fuga de datos: ['reservation_status', 'reservation_status_date', 'assigned_room_type', 'booking_changes']
-  Matriz analítica: 119,208 filas x 18 columnas
+  Matriz analítica: 119,208 filas x 19 columnas
 
 [CARGA] Archivo plano guardado en datos/hotel_analitica.csv
+[CARGA] Tabla 'hotel_analitica' guardada en PostgreSQL (119,208 filas)

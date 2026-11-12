@@ -3,7 +3,8 @@ modelado_reservas.py
 ====================
 Pipeline de machine learning: predecir si una reserva de hotel será CANCELADA.
 
-Entrada : datos/hotel_analitica.csv  (salida de etl_auditoria.py)
+Entrada : PostgreSQL, tabla "hotel_analitica"  (o datos/hotel_analitica.csv con --fuente csv)
+Salida  : PostgreSQL, tabla "predicciones_2017" (probabilidad y decisión por reserva)
 Modelo  : Regresión logística (solver lbfgs)
 
 Pasos del pipeline:
@@ -17,11 +18,13 @@ Pasos del pipeline:
      comparación contra un baseline que siempre predice "no cancela".
   6. Función tipada de inferencia: si P(cancelar) >= 60% -> sobrevender la habitación.
 
-Ejecutar:  python modelado_reservas.py
+Ejecutar:  python modelado_reservas.py              (lee y guarda en PostgreSQL)
+           python modelado_reservas.py --fuente csv (solo CSV, sin base de datos)
 """
 
 from __future__ import annotations
 
+import argparse
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -63,9 +66,17 @@ VARIABLES_X: list[str] = [
 # --------------------------------------------------------------------------- #
 # 0. Carga
 # --------------------------------------------------------------------------- #
-def cargar_datos(ruta: Path) -> pd.DataFrame:
-    df = pd.read_csv(ruta, parse_dates=["fecha_llegada"])
-    print(f"[CARGA] {len(df):,} reservas leídas de {ruta}")
+def cargar_datos(fuente: str) -> pd.DataFrame:
+    if fuente == "postgres":
+        from conexion_db import obtener_engine
+
+        df = pd.read_sql("SELECT * FROM hotel_analitica ORDER BY fecha_llegada, id_reserva",
+                         obtener_engine(), parse_dates=["fecha_llegada"])
+        origen = "PostgreSQL (tabla 'hotel_analitica')"
+    else:
+        df = pd.read_csv(RUTA_DATOS, parse_dates=["fecha_llegada"])
+        origen = str(RUTA_DATOS)
+    print(f"[CARGA] {len(df):,} reservas leídas de {origen}")
     return df
 
 
@@ -140,7 +151,7 @@ def evaluar(
     escalador: StandardScaler,
     X_test: pd.DataFrame,
     y_test: pd.Series,
-) -> None:
+) -> np.ndarray:
     proba = modelo.predict_proba(escalador.transform(X_test))[:, 1]
     pred = (proba >= 0.5).astype(int)
 
@@ -169,6 +180,26 @@ def evaluar(
     print(f"\n[UMBRAL DE DECISIÓN {UMBRAL_DECISION:.0%}]")
     print(f"  Reservas marcadas para sobreventa: {decide.sum():,} de {len(decide):,}")
     print(f"  De esas, realmente se cancelaron: {y_test[decide].mean():.1%} (precisión)")
+    return proba
+
+
+def guardar_predicciones(df_prueba: pd.DataFrame, proba: np.ndarray) -> None:
+    """Guarda en PostgreSQL la probabilidad y la decisión de cada reserva de prueba."""
+    from conexion_db import obtener_engine
+
+    resultado = pd.DataFrame(
+        {
+            "id_reserva": df_prueba["id_reserva"].to_numpy(),
+            "fecha_llegada": df_prueba["fecha_llegada"].dt.date.to_numpy(),
+            "hotel": df_prueba["hotel"].to_numpy(),
+            "cancelada_real": df_prueba[TARGET].to_numpy(),
+            "probabilidad_cancelacion": proba.round(4),
+            "decision_sobrevender": proba >= UMBRAL_DECISION,
+        }
+    )
+    resultado.to_sql("predicciones_2017", obtener_engine(), if_exists="replace", index=False,
+                     chunksize=5000, method="multi")
+    print(f"\n[GUARDADO] Tabla 'predicciones_2017' creada en PostgreSQL ({len(resultado):,} filas)")
 
 
 # --------------------------------------------------------------------------- #
@@ -241,12 +272,18 @@ def demo_inferencia(modelo: LogisticRegression, escalador: StandardScaler) -> No
 # Pipeline principal
 # --------------------------------------------------------------------------- #
 def main() -> None:
-    df = cargar_datos(RUTA_DATOS)
+    parser = argparse.ArgumentParser(description="Modelo de cancelación de reservas")
+    parser.add_argument("--fuente", choices=["postgres", "csv"], default="postgres")
+    fuente = parser.parse_args().fuente
+
+    df = cargar_datos(fuente)
     X_train, X_test, y_train, y_test = split_cronologico(df)
     X_train, X_test, _ = imputar_nulos(X_train, X_test)
     escalador, modelo = escalar_y_entrenar(X_train, y_train)
-    evaluar(modelo, escalador, X_test, y_test)
+    proba = evaluar(modelo, escalador, X_test, y_test)
     demo_inferencia(modelo, escalador)
+    if fuente == "postgres":
+        guardar_predicciones(df[df["fecha_llegada"] >= FECHA_CORTE], proba)
 
 
 if __name__ == "__main__":
