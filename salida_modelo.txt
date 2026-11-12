@@ -1,0 +1,62 @@
+[CARGA] 119,208 reservas leídas de datos/hotel_analitica.csv
+
+[SPLIT CRONOLÓGICO]
+  Entrenamiento: 2015-07-01 a 2016-12-31 -> 78,589 reservas
+  Prueba       : 2017-01-01 a 2017-08-31 -> 40,619 reservas
+
+[AUDITORÍA DE NULOS]
+  ninos: 4 nulos en entrenamiento, 0 en prueba -> imputados con la mediana de entrenamiento = 0.0
+  Nulos restantes: 0
+
+[MODELO] Regresión logística entrenada. Coeficientes (variables escaladas):
+  parqueaderos_solicitados         -7.344  (reduce la probabilidad de cancelar)
+  cancelaciones_previas            +3.052  (aumenta la probabilidad de cancelar)
+  deposito_no_reembolsable         +1.832  (aumenta la probabilidad de cancelar)
+  reservas_previas_no_canceladas   -0.760  (reduce la probabilidad de cancelar)
+  solicitudes_especiales           -0.612  (reduce la probabilidad de cancelar)
+  canal_agencia_online             +0.609  (aumenta la probabilidad de cancelar)
+  dias_anticipacion                +0.338  (aumenta la probabilidad de cancelar)
+  tarifa_diaria                    +0.154  (aumenta la probabilidad de cancelar)
+  cliente_transitorio              +0.138  (aumenta la probabilidad de cancelar)
+  noches_totales                   +0.091  (aumenta la probabilidad de cancelar)
+  adultos                          +0.077  (aumenta la probabilidad de cancelar)
+  cliente_repetido                 -0.069  (reduce la probabilidad de cancelar)
+  ninos                            +0.051  (aumenta la probabilidad de cancelar)
+  es_city_hotel                    +0.040  (aumenta la probabilidad de cancelar)
+  dias_lista_espera                +0.005  (aumenta la probabilidad de cancelar)
+  Intercepto: -2.052
+
+[EVALUACIÓN EN PRUEBA (ene-ago 2017)]
+Reporte de clasificación (umbral estándar 0.5):
+              precision    recall  f1-score   support
+
+  No cancela      0.755     0.914     0.827     24885
+     Cancela      0.795     0.530     0.636     15734
+
+    accuracy                          0.765     40619
+   macro avg      0.775     0.722     0.731     40619
+weighted avg      0.770     0.765     0.753     40619
+
+Matriz de confusión:
+                      Predice NO cancela   Predice cancela
+  Real NO cancela                 22,737             2,148
+  Real cancela                     7,396             8,338
+
+ROC AUC: 0.819  (0.5 = adivinar al azar, 1.0 = perfecto)
+
+[COMPARACIÓN CONTRA BASELINE]
+  Baseline (siempre 'no cancela'): exactitud = 61.3%, ROC AUC = 0.500
+  Regresión logística           : exactitud = 76.5%, ROC AUC = 0.819
+  Mejora sobre el baseline       : +15.2% puntos de exactitud
+
+[UMBRAL DE DECISIÓN 60%]
+  Reservas marcadas para sobreventa: 7,015 de 40,619
+  De esas, realmente se cancelaron: 89.1% (precisión)
+
+[FUNCIÓN DE INFERENCIA - umbral 60%]
+  Caso A - reserva riesgosa (agencia online, 9 meses de anticipación, depósito no reembolsable)
+    P(cancelar) = 100.0% -> sobrevender = True. Alta probabilidad de cancelación: se puede sobrevender esta habitación.
+  Caso B - caso intermedio (City Hotel, 2 meses de anticipación, sin solicitudes)
+    P(cancelar) = 50.9% -> sobrevender = False. No supera el umbral: mantener la habitación reservada.
+  Caso C - reserva segura (cliente repetido, parqueadero, 2 solicitudes especiales)
+    P(cancelar) = 0.0% -> sobrevender = False. No supera el umbral: mantener la habitación reservada.

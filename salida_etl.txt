@@ -1,0 +1,20 @@
+[EXTRACCIÓN] 119,390 filas x 32 columnas leídas de datos/hotel_bookings.csv
+
+[AUDITORÍA]
+  Nulos por columna:
+    - children         4  (0.0%)
+    - country        488  (0.4%)
+    - agent       16,340  (13.7%)
+    - company    112,593  (94.3%)
+  Filas duplicadas exactas : 31,994  (reservas de grupo sin ID; se conservan)
+  Reservas con 0 huéspedes : 180  (anomalía)
+  Tarifa diaria (adr) < 0  : 1  (anomalía)
+  Tarifa diaria (adr) > 1000: 1  (valor atípico, máx = 5,400)
+  Tasa de cancelación global: 37.0%
+
+[TRANSFORMACIÓN]
+  Filas eliminadas por anomalías: 182
+  Columnas eliminadas por fuga de datos: ['reservation_status', 'reservation_status_date', 'assigned_room_type', 'booking_changes']
+  Matriz analítica: 119,208 filas x 18 columnas
+
+[CARGA] Archivo plano guardado en datos/hotel_analitica.csv
